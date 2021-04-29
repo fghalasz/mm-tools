@@ -7,22 +7,33 @@
 #   Remote machine must be one of gui.local, dac.local, core.local.
 #
 #   FGH 2021-04-27
-#
 
+#
+#   Defines
+#
+PORT=3220
+
+#
+#    Check to make sure we are on the GUI host
+#
+if [ $(hostname) != gui ]; then
+    echo "Error: $(basename $0) can only be run on the gui host"
+    echo "Exiting"
+    exit 1
+fi
 
 #
 #  Process args
 #
-PORT=3220
 if [ $# -lt 1 -o $# -gt 2 ]; then
-    echo "Usage: $0 <REMOTE_NAME> [<APP NAME>]"
+    echo "Usage: $(basename $0) <REMOTE_NAME> [<APP NAME>]"
     exit 1
 fi
 case $1 in
     gui|core|dac|all)
     ;;
     *)
-        echo "Usage: $0 <REMOTE_NAME> [<APP NAME>]"
+        echo "Usage: $(basename $0) <REMOTE_NAME> [<APP NAME>]"
 	echo "First argument must be one of: gui, core, dac, or all."
 	exit 1
     ;;
@@ -41,7 +52,12 @@ APP=$2
 #
 #   Use ssh to launch pd in server mode on remote host
 #
-/usr/bin/ssh -f ${RN}@${RN}.local /usr/local/bin/pd -nrt -server-mode ${PORT} /home/${RN}/pd/patches/${APP}/${RN}/${APP}-${RN}.pd
+if [ "X${APP}X" = "XX" ]; then
+    APP_STRING=""
+else
+    APP_STRING=/home/${RN}/pd/patches/${APP}/${RN}/${APP}-${RN}.pd
+fi
+/usr/bin/ssh -o "StrictHostKeyChecking=no" -f ${RN}@${RN}.local /usr/local/bin/pd -nrt -server-mode ${PORT} ${APP_STRING}
 sleep 1
 #
 #   Execute (most of) rest of script as local user corresponding 
@@ -58,7 +74,7 @@ cd \$HOME
 if [ ${RN} != gui ]; then
     /usr/bin/mount -t fuse.sshfs | grep -q ${RN}.local
     if [ \$? -ne 0 ]; then
-        sudo /usr/bin/sshfs ${RN}@${RN}.local:/home/${RN}  /home/${RN} -o nonempty -o reconnect -o allow_other
+        sudo /usr/bin/sshfs ${RN}@${RN}.local:/home/${RN}  /home/${RN} -o nonempty -o reconnect -o allow_other -o "IdentityFile=/home/gui/.ssh/id_rsa" -o "StrictHostKeyChecking=no" 
     fi 
 fi
 #
